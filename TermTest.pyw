@@ -8,6 +8,13 @@ from PyQt5.QtWidgets import *
 class Form(QWidget):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
+
+        self.buffer = ""
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(100)
+        self.timer.timeout.connect(self.empty_buffer)
+
         layout = QVBoxLayout(self)
 
         lay_select = QHBoxLayout()
@@ -30,6 +37,8 @@ class Form(QWidget):
         self.inbox = QTextEdit()
         self.inbox.setReadOnly(True)
         layout.addWidget(self.inbox)
+
+        self.serial_port = QSerialPort()
 
         # restore saved settings
         self.settings = QSettings("Wene", "TermTest")
@@ -70,8 +79,29 @@ class Form(QWidget):
         if isinstance(port, QSerialPortInfo) and isinstance(speed, int):
             # todo: establish the real connection
             self.inbox.append("connecting...")
+            self.serial_port.setPort(port)
+            self.serial_port.setBaudRate(speed)
+            connected = self.serial_port.open(QIODevice.ReadWrite)
+            self.inbox.append("Connection: " + str(connected))
+            if connected:
+                self.serial_port.readyRead.connect(self.read_serial)
+            else:
+                self.inbox.append(self.serial_port.errorString())
 
-    # save settings
+    def read_serial(self):
+        data = self.serial_port.read(self.serial_port.bytesAvailable())
+        assert isinstance(data, bytes)
+        for character in data:
+            self.buffer += str(int(character))
+            self.buffer += " "
+        self.timer.start()
+
+    def empty_buffer(self):
+        self.inbox.append(self.buffer)
+        self.buffer = ""
+
+
+# save settings
     def closeEvent(self, QCloseEvent):
         self.settings.setValue("Position", self.pos())
         self.settings.setValue("Size", self.size())
