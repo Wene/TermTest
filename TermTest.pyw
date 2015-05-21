@@ -8,15 +8,16 @@ from PyQt5.QtWidgets import *
 class Form(QWidget):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
+        layout = QVBoxLayout(self)
 
+        # define timer and buffer
         self.buffer = ""
         self.timer = QTimer()
         self.timer.setSingleShot(True)
-        self.timer.setInterval(100)
+        self.timer.setInterval(10)
         self.timer.timeout.connect(self.empty_buffer)
 
-        layout = QVBoxLayout(self)
-
+        # define port selsction layout and widgets
         lay_select = QHBoxLayout()
         layout.addLayout(lay_select)
         self.port_selector = QComboBox()
@@ -34,10 +35,22 @@ class Form(QWidget):
         lay_select.addWidget(self.btn_connect)
         lay_select.addStretch()
 
+        # define input widgets
         self.inbox = QTextEdit()
         self.inbox.setReadOnly(True)
         layout.addWidget(self.inbox)
 
+        # define output widgets
+        lay_output = QHBoxLayout()
+        layout.addLayout(lay_output)
+        self.input = QLineEdit()
+        lay_output.addWidget(self.input)
+        self.btn_send = QPushButton("&Send")
+        lay_output.addWidget(self.btn_send)
+        self.input.returnPressed.connect(self.btn_send.click)
+        self.btn_send.clicked.connect(self.send_data)
+
+        # define serial port
         self.serial_port = QSerialPort()
 
         # restore saved settings
@@ -101,6 +114,17 @@ class Form(QWidget):
     def empty_buffer(self):
         self.inbox.append(self.buffer)
         self.buffer = ""
+
+    def send_data(self):
+        segments = self.input.text().split()
+        characters = bytearray()
+        for character in segments:
+            if character.isdigit():
+                segment = int(character)
+                if segment >= 0 and segment < 256:
+                    characters.append(segment)
+        if len(characters) > 0 and self.serial_port.isOpen():
+            self.serial_port.write(characters)
 
 
 # save settings
