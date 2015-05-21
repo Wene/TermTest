@@ -77,7 +77,6 @@ class Form(QWidget):
         port = self.port_selector.currentData()
         speed = self.speed_selector.currentData()
         if isinstance(port, QSerialPortInfo) and isinstance(speed, int):
-            # todo: establish the real connection
             self.inbox.append("connecting...")
             self.serial_port.setPort(port)
             self.serial_port.setBaudRate(speed)
@@ -85,8 +84,11 @@ class Form(QWidget):
             self.inbox.append("Connection: " + str(connected))
             if connected:
                 self.serial_port.readyRead.connect(self.read_serial)
+                self.port_selector.setEnabled(False)
+                self.speed_selector.setEnabled(False)
+                self.btn_connect.setEnabled(False)
             else:
-                self.inbox.append(self.serial_port.errorString())
+                self.inbox.append("Error: " + self.serial_port.errorString())
 
     def read_serial(self):
         data = self.serial_port.read(self.serial_port.bytesAvailable())
