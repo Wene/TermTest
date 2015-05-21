@@ -126,8 +126,7 @@ class Form(QWidget):
         if len(characters) > 0 and self.serial_port.isOpen():
             self.serial_port.write(characters)
 
-
-# save settings
+    # save settings
     def closeEvent(self, QCloseEvent):
         self.settings.setValue("Position", self.pos())
         self.settings.setValue("Size", self.size())
