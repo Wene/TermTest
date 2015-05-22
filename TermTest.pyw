@@ -58,6 +58,26 @@ class Form(QWidget):
         self.move(self.settings.value("Position", QPoint(10, 10), type=QPoint))
         self.resize(self.settings.value("Size", QSize(100, 100), type=QSize))
 
+        # activate the following line to use local dummy test
+        self.connect_local_dummy()
+
+    # local test dummy for use with socat
+    # [socat -d -d pty,raw,echo=0,user=<username> pty,raw,echo=0,user=<username>]
+    def connect_local_dummy(self):
+        self.inbox.append("connecting...")
+        self.serial_port.setPortName("/dev/pts/2")  # replace port number when needed
+        connected = self.serial_port.open(QIODevice.ReadWrite)
+        self.inbox.append("Connection: " + str(connected))
+        if connected:
+            self.serial_port.readyRead.connect(self.read_serial)
+            self.port_selector.setEnabled(False)
+            self.speed_selector.setEnabled(False)
+            self.btn_connect.setEnabled(False)
+        else:
+            self.inbox.append("Error: " + self.serial_port.errorString())
+
+        # connection from the other side is made by [screen /dev/pts/3]
+
     # search for available serial ports and fill the QComboBox
     def fill_port_selector(self):
         self.port_selector.clear()
@@ -130,6 +150,7 @@ class Form(QWidget):
     def closeEvent(self, QCloseEvent):
         self.settings.setValue("Position", self.pos())
         self.settings.setValue("Size", self.size())
+        self.serial_port.close()
 
 if __name__ == '__main__':
     import sys
