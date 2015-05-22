@@ -17,7 +17,7 @@ class Form(QWidget):
         self.timer.setInterval(10)
         self.timer.timeout.connect(self.empty_buffer)
 
-        # define port selsction layout and widgets
+        # define port selection layout and widgets
         lay_select = QHBoxLayout()
         layout.addLayout(lay_select)
         self.port_selector = QComboBox()
@@ -27,7 +27,7 @@ class Form(QWidget):
         # enable resizing after widget gets first shown
         self.speed_selector.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self.speed_selector.currentIndexChanged.connect(self.speed_selected)
-        self.btn_connect = QPushButton("&Connect")
+        self.btn_connect = QPushButton("&Verbinden")
         self.btn_connect.setEnabled(False)
         self.btn_connect.clicked.connect(self.connect_to_serial)
         lay_select.addWidget(self.port_selector)
@@ -44,8 +44,9 @@ class Form(QWidget):
         lay_output = QHBoxLayout()
         layout.addLayout(lay_output)
         self.input = QLineEdit()
+        self.input.setToolTip("<p>Zeichen als Dezimalzahlen durch Leerzeichen getrennt eingeben</p>")
         lay_output.addWidget(self.input)
-        self.btn_send = QPushButton("&Send")
+        self.btn_send = QPushButton("&Senden")
         lay_output.addWidget(self.btn_send)
         self.input.returnPressed.connect(self.btn_send.click)
         self.btn_send.clicked.connect(self.send_data)
@@ -64,24 +65,24 @@ class Form(QWidget):
     # local test dummy for use with socat
     # [socat -d -d pty,raw,echo=0,user=<username> pty,raw,echo=0,user=<username>]
     def connect_local_dummy(self):
-        self.inbox.append("connecting...")
+        self.inbox.append("verbinde...")
         self.serial_port.setPortName("/dev/pts/2")  # replace port number when needed
         connected = self.serial_port.open(QIODevice.ReadWrite)
-        self.inbox.append("Connection: " + str(connected))
+        self.inbox.append("Verbindung: " + str(connected))
         if connected:
             self.serial_port.readyRead.connect(self.read_serial)
             self.port_selector.setEnabled(False)
             self.speed_selector.setEnabled(False)
             self.btn_connect.setEnabled(False)
         else:
-            self.inbox.append("Error: " + self.serial_port.errorString())
+            self.inbox.append("Fehler: " + self.serial_port.errorString())
 
         # connection from the other side is made by [screen /dev/pts/3]
 
     # search for available serial ports and fill the QComboBox
     def fill_port_selector(self):
         self.port_selector.clear()
-        self.port_selector.addItem("Select Port...")
+        self.port_selector.addItem("Port auswählen...")
         port_list = QSerialPortInfo.availablePorts()
         for port in port_list:
             assert isinstance(port, QSerialPortInfo)
@@ -93,11 +94,12 @@ class Form(QWidget):
         self.speed_selector.clear()
         port = self.port_selector.currentData()
         if isinstance(port, QSerialPortInfo):  # the first item isn't a QSerialPortInfo. It's just text.
-            self.speed_selector.addItem("Select Speed...")
+            self.speed_selector.addItem("Geschwindigkeit...")
             speed_list = port.standardBaudRates()
             for speed in speed_list:
                 self.speed_selector.addItem(str(speed), speed)
 
+    # This slot is called by selecting a speed. If valid the btn_connect gets enabled.
     def speed_selected(self):
         speed = self.speed_selector.currentData()
         if isinstance(speed, int):
@@ -110,31 +112,35 @@ class Form(QWidget):
         port = self.port_selector.currentData()
         speed = self.speed_selector.currentData()
         if isinstance(port, QSerialPortInfo) and isinstance(speed, int):
-            self.inbox.append("connecting...")
+            self.inbox.append("verbinde...")
             self.serial_port.setPort(port)
             self.serial_port.setBaudRate(speed)
             connected = self.serial_port.open(QIODevice.ReadWrite)
-            self.inbox.append("Connection: " + str(connected))
+            self.inbox.append("Verbindung: " + str(connected))
             if connected:
                 self.serial_port.readyRead.connect(self.read_serial)
                 self.port_selector.setEnabled(False)
                 self.speed_selector.setEnabled(False)
                 self.btn_connect.setEnabled(False)
             else:
-                self.inbox.append("Error: " + self.serial_port.errorString())
+                self.inbox.append("Fehler: " + self.serial_port.errorString())
 
+    # This slot is called whenever new data is available for read.
     def read_serial(self):
         data = self.serial_port.read(self.serial_port.bytesAvailable())
         assert isinstance(data, bytes)
         for character in data:
             self.buffer += str(int(character))
             self.buffer += " "
-        self.timer.start()
+        self.timer.start()  # Start or restart the timer til the buffer is displayed. Therefore it's
+                            # possible to show one transmission in one line.
 
+    # After timer rimes out, the buffer is shown and reset.
     def empty_buffer(self):
         self.inbox.append(self.buffer)
         self.buffer = ""
 
+    # This slot is called by pressing the btn_send. Sends Data to the terminal.
     def send_data(self):
         segments = self.input.text().split()
         characters = bytearray()
@@ -151,6 +157,7 @@ class Form(QWidget):
         self.settings.setValue("Position", self.pos())
         self.settings.setValue("Size", self.size())
         self.serial_port.close()
+
 
 if __name__ == '__main__':
     import sys
