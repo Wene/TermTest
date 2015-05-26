@@ -27,6 +27,11 @@ class Form(QWidget):
         super(Form, self).__init__(parent)
         layout = QVBoxLayout(self)
 
+        # restore saved settings
+        self.settings = QSettings("Wene", "TermTest")
+        self.move(self.settings.value("Position", QPoint(10, 10), type=QPoint))
+        self.resize(self.settings.value("Size", QSize(100, 100), type=QSize))
+
         # define timer and buffer
         self.buffer = ""
         self.timer = QTimer()
@@ -38,7 +43,6 @@ class Form(QWidget):
         lay_select = QHBoxLayout()
         layout.addLayout(lay_select)
         self.port_selector = QComboBox()
-        self.fill_port_selector()
         self.port_selector.currentIndexChanged.connect(self.port_selected)
         self.speed_selector = QComboBox()
         # enable resizing after widget gets first shown
@@ -51,6 +55,7 @@ class Form(QWidget):
         lay_select.addWidget(self.speed_selector)
         lay_select.addWidget(self.btn_connect)
         lay_select.addStretch()
+        self.fill_port_selector()
 
         # define input widgets
         self.inbox = QTextEdit()
@@ -73,11 +78,6 @@ class Form(QWidget):
 
         # define serial port
         self.serial_port = QSerialPort()
-
-        # restore saved settings
-        self.settings = QSettings("Wene", "TermTest")
-        self.move(self.settings.value("Position", QPoint(10, 10), type=QPoint))
-        self.resize(self.settings.value("Size", QSize(100, 100), type=QSize))
 
         # activate the following line to use local dummy test
         # self.connect_local_dummy()
@@ -107,6 +107,12 @@ class Form(QWidget):
             assert isinstance(port, QSerialPortInfo)
             port_name = port.portName() + " (" + port.manufacturer() + " / " + port.description() + ")"
             self.port_selector.addItem(port_name, port)
+        port_setting = self.settings.value("Port", type=int)
+        speed_setting = self.settings.value("Speed", type=int)
+        if isinstance(port_setting, int):
+            self.port_selector.setCurrentIndex(port_setting)
+        if isinstance(speed_setting, int):
+            self.speed_selector.setCurrentIndex(speed_setting)
 
     # fill the QComboBox with commands from http://www.vt100.net/docs/vt510-rm/contents
     def fill_template_selector(self):
@@ -118,9 +124,11 @@ class Form(QWidget):
         self.template_selector.addItem("Display löschen", "27 91 50 74")
         self.template_selector.addItem("Cursor zum Anfang", "27 91 49 59 49 72")
         self.template_selector.addItem("Cursor Position abfragen", "27 91 54 110")
+        self.template_selector.addItem("Host LED Modus", "27 91 63 49 49 48 104")
+        self.template_selector.addItem("Caps LED ein", "27 91 50 113")
+        self.template_selector.addItem("Caps LED aus", "27 91 50 50 113")
         # When a command is selected, the input field content is replaced with the command.
         self.template_selector.currentIndexChanged.connect(self.template_selected)
-
 
     # this slot is called by selecting another serial port -> list the available speed settings
     def port_selected(self):
@@ -168,7 +176,7 @@ class Form(QWidget):
         self.timer.start()  # Start or restart the timer til the buffer is displayed. Therefore it's
                             # possible to show one transmission in one line.
 
-    # After timer rimes out, the buffer is shown and reset.
+    # After timer times out, the buffer is shown and reset.
     def empty_buffer(self):
         self.inbox.append(self.buffer)
         self.buffer = ""
@@ -196,6 +204,8 @@ class Form(QWidget):
         self.settings.setValue("Position", self.pos())
         self.settings.setValue("Size", self.size())
         self.serial_port.close()
+        self.settings.setValue("Port", self.port_selector.currentIndex())
+        self.settings.setValue("Speed", self.speed_selector.currentIndex())
 
 
 if __name__ == '__main__':
