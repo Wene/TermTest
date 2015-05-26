@@ -60,6 +60,9 @@ class Form(QWidget):
         # define output widgets
         lay_output = QHBoxLayout()
         layout.addLayout(lay_output)
+        self.template_selector = QComboBox()
+        self.fill_template_selector()
+        lay_output.addWidget(self.template_selector)
         self.input = QLineEdit()
         self.input.setToolTip("<p>Zeichen als Dezimalzahlen durch Leerzeichen getrennt eingeben</p>")
         lay_output.addWidget(self.input)
@@ -77,7 +80,7 @@ class Form(QWidget):
         self.resize(self.settings.value("Size", QSize(100, 100), type=QSize))
 
         # activate the following line to use local dummy test
-        self.connect_local_dummy()
+        # self.connect_local_dummy()
 
     # local test dummy for use with socat
     # [socat -d -d pty,raw,echo=0,user=<username> pty,raw,echo=0,user=<username>]
@@ -93,7 +96,6 @@ class Form(QWidget):
             self.btn_connect.setEnabled(False)
         else:
             self.inbox.append("Fehler: " + self.serial_port.errorString())
-
         # connection from the other side is made by [screen /dev/pts/3]
 
     # search for available serial ports and fill the QComboBox
@@ -105,6 +107,20 @@ class Form(QWidget):
             assert isinstance(port, QSerialPortInfo)
             port_name = port.portName() + " (" + port.manufacturer() + " / " + port.description() + ")"
             self.port_selector.addItem(port_name, port)
+
+    # fill the QComboBox with commands from http://www.vt100.net/docs/vt510-rm/contents
+    def fill_template_selector(self):
+        self.template_selector.addItem("Vorlage wählen...")
+        self.template_selector.addItem("Links", "27 91 49 68")
+        self.template_selector.addItem("Rechts", "27 91 49 67")
+        self.template_selector.addItem("Aufwärts", "27 91 49 65")
+        self.template_selector.addItem("Abwärts", "27 91 49 66")
+        self.template_selector.addItem("Display löschen", "27 91 50 74")
+        self.template_selector.addItem("Cursor zum Anfang", "27 91 49 59 49 72")
+        self.template_selector.addItem("Cursor Position abfragen", "27 91 54 110")
+        # When a command is selected, the input field content is replaced with the command.
+        self.template_selector.currentIndexChanged.connect(self.template_selected)
+
 
     # this slot is called by selecting another serial port -> list the available speed settings
     def port_selected(self):
@@ -168,6 +184,12 @@ class Form(QWidget):
                     characters.append(segment)
         if len(characters) > 0 and self.serial_port.isOpen():
             self.serial_port.write(characters)
+
+    def template_selected(self):
+        command = self.template_selector.currentData()
+        if isinstance(command, str):
+            self.input.clear()
+            self.input.setText(command)
 
     # save settings
     def closeEvent(self, QCloseEvent):
