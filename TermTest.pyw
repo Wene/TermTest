@@ -79,25 +79,6 @@ class Form(QWidget):
         # define serial port
         self.serial_port = QSerialPort()
 
-        # activate the following line to use local dummy test
-        # self.connect_local_dummy()
-
-    # local test dummy for use with socat
-    # [socat -d -d pty,raw,echo=0,user=<username> pty,raw,echo=0,user=<username>]
-    def connect_local_dummy(self):
-        self.inbox.append("verbinde...")
-        self.serial_port.setPortName("/dev/pts/2")  # replace port number when needed
-        connected = self.serial_port.open(QIODevice.ReadWrite)
-        self.inbox.append("Verbindung: " + str(connected))
-        if connected:
-            self.serial_port.readyRead.connect(self.read_serial)
-            self.port_selector.setEnabled(False)
-            self.speed_selector.setEnabled(False)
-            self.btn_connect.setEnabled(False)
-        else:
-            self.inbox.append("Fehler: " + self.serial_port.errorString())
-        # connection from the other side is made by [screen /dev/pts/3]
-
     # search for available serial ports and fill the QComboBox
     def fill_port_selector(self):
         self.port_selector.clear()
@@ -107,6 +88,13 @@ class Form(QWidget):
             assert isinstance(port, QSerialPortInfo)
             port_name = port.portName() + " (" + port.manufacturer() + " / " + port.description() + ")"
             self.port_selector.addItem(port_name, port)
+
+        # append dummy port for local simulation
+        port_name = "/dev/pts/2 (Dummy)"
+        port = "Dummy"  # String to identify the dummy port
+        self.port_selector.addItem(port_name, port)
+
+        # restore last time selected port
         port_setting = self.settings.value("Port", type=int)
         speed_setting = self.settings.value("Speed", type=int)
         if isinstance(port_setting, int):
@@ -134,11 +122,15 @@ class Form(QWidget):
     def port_selected(self):
         self.speed_selector.clear()
         port = self.port_selector.currentData()
-        if isinstance(port, QSerialPortInfo):  # the first item isn't a QSerialPortInfo. It's just text.
+        if isinstance(port, QSerialPortInfo):  # the first and the dummy aren't QSerialPortInfo. They're just text.
             self.speed_selector.addItem("Geschwindigkeit...")
             speed_list = port.standardBaudRates()
             for speed in speed_list:
                 self.speed_selector.addItem(str(speed), speed)
+        elif isinstance(port, str):  # If it's the dummy, set speed also to dummy
+            if port == "Dummy":
+                self.speed_selector.addItem("Geschwindigkeit...")
+                self.speed_selector.addItem("Dummy", 0)
 
     # This slot is called by selecting a speed. If valid the btn_connect gets enabled.
     def speed_selected(self):
@@ -165,6 +157,22 @@ class Form(QWidget):
                 self.btn_connect.setEnabled(False)
             else:
                 self.inbox.append("Fehler: " + self.serial_port.errorString())
+
+        # local test dummy for use with socat
+        # [socat -d -d pty,raw,echo=0,user=<username> pty,raw,echo=0,user=<username>]
+        elif isinstance(port, str) and port == "Dummy":
+            self.inbox.append("verbinde...")
+            self.serial_port.setPortName("/dev/pts/2")  # replace port number when needed
+            connected = self.serial_port.open(QIODevice.ReadWrite)
+            self.inbox.append("Verbindung: " + str(connected))
+            if connected:
+                self.serial_port.readyRead.connect(self.read_serial)
+                self.port_selector.setEnabled(False)
+                self.speed_selector.setEnabled(False)
+                self.btn_connect.setEnabled(False)
+            else:
+                self.inbox.append("Fehler: " + self.serial_port.errorString())
+            # connection from the other side is made by [screen /dev/pts/3]
 
     # This slot is called whenever new data is available for read.
     def read_serial(self):
